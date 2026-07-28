@@ -249,12 +249,12 @@ func (s *ExamService) runLottery(session *model.ExamSession) string {
 		return noPrizeMsg
 	}
 
-	for attempt := 0; attempt < maxPrizeRetries; attempt++ {
-		prizes, err := s.prizeRepo.GetByExamID(session.ExamID)
-		if err != nil || len(prizes) == 0 {
-			return noPrizeMsg
-		}
+	prizes, err := s.prizeRepo.GetByExamID(session.ExamID)
+	if err != nil || len(prizes) == 0 {
+		return noPrizeMsg
+	}
 
+	for attempt := 0; attempt < maxPrizeRetries && len(prizes) > 0; attempt++ {
 		target := weightedRandom(prizes)
 
 		tx := db.DB.Begin()
@@ -265,6 +265,7 @@ func (s *ExamService) runLottery(session *model.ExamSession) string {
 		}
 		if !ok {
 			tx.Rollback()
+			prizes = removePrize(prizes, target.ID)
 			continue
 		}
 
@@ -273,6 +274,15 @@ func (s *ExamService) runLottery(session *model.ExamSession) string {
 	}
 
 	return noPrizeMsg
+}
+
+func removePrize(prizes []model.Prize, id uint) []model.Prize {
+	for i, p := range prizes {
+		if p.ID == id {
+			return append(prizes[:i], prizes[i+1:]...)
+		}
+	}
+	return prizes
 }
 
 func weightedRandom(prizes []model.Prize) model.Prize {

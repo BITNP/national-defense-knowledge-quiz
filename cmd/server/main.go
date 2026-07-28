@@ -39,7 +39,12 @@ func main() {
 		log.Fatalf("failed to warm exam cache: %v", err)
 	}
 
-	examSvc := service.NewExamService(cfg.TZ, problemCache, examCache)
+	attemptTracker := cache.NewAttemptTracker(cache.DefaultBloomCapacity)
+	if err := attemptTracker.Seed(context.Background()); err != nil {
+		log.Fatalf("failed to seed attempt tracker: %v", err)
+	}
+
+	examSvc := service.NewExamService(cfg.TZ, problemCache, examCache, attemptTracker)
 	examHandler := handler.NewExamHandler(examSvc)
 
 	r := gin.Default()

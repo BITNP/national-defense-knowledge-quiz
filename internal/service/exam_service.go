@@ -58,24 +58,26 @@ type SubmitResult struct {
 }
 
 type ExamService struct {
-	examRepo     *repository.ExamRepo
-	problemRepo  *repository.ProblemRepo
-	prizeRepo    *repository.PrizeRepo
-	sessionRepo  *repository.ExamSessionRepo
-	loc          *time.Location
-	problemCache *cache.ProblemCache
-	examCache    *cache.ExamCache
+	examRepo       *repository.ExamRepo
+	problemRepo    *repository.ProblemRepo
+	prizeRepo      *repository.PrizeRepo
+	sessionRepo    *repository.ExamSessionRepo
+	loc            *time.Location
+	problemCache   *cache.ProblemCache
+	examCache      *cache.ExamCache
+	attemptTracker *cache.AttemptTracker
 }
 
-func NewExamService(loc *time.Location, pc *cache.ProblemCache, ec *cache.ExamCache) *ExamService {
+func NewExamService(loc *time.Location, pc *cache.ProblemCache, ec *cache.ExamCache, at *cache.AttemptTracker) *ExamService {
 	return &ExamService{
-		examRepo:     &repository.ExamRepo{},
-		problemRepo:  &repository.ProblemRepo{},
-		prizeRepo:    &repository.PrizeRepo{},
-		sessionRepo:  &repository.ExamSessionRepo{},
-		loc:          loc,
-		problemCache: pc,
-		examCache:    ec,
+		examRepo:       &repository.ExamRepo{},
+		problemRepo:    &repository.ProblemRepo{},
+		prizeRepo:      &repository.PrizeRepo{},
+		sessionRepo:    &repository.ExamSessionRepo{},
+		loc:            loc,
+		problemCache:   pc,
+		examCache:      ec,
+		attemptTracker: at,
 	}
 }
 
@@ -107,6 +109,10 @@ func (s *ExamService) Start(ctx context.Context, examID uint, studentID, name st
 
 	now := time.Now()
 
+	if !s.attemptTracker.HasAttempted(examID, studentID) {
+		return s.createNewSession(ctx, exam, examID, studentID, name, now)
+	}
+
 	sessions, err := s.sessionRepo.FindSessionsByExamAndStudent(ctx, examID, studentID)
 	if err != nil {
 		return nil, fmt.Errorf("database error")
@@ -134,6 +140,10 @@ func (s *ExamService) Start(ctx context.Context, examID uint, studentID, name st
 		return s.buildStartResult(fullSession, exam)
 	}
 
+	return s.createNewSession(ctx, exam, examID, studentID, name, now)
+}
+
+func (s *ExamService) createNewSession(ctx context.Context, exam *model.Exam, examID uint, studentID, name string, now time.Time) (*StartResult, error) {
 	problems, err := s.problemCache.GetRandom(examID, exam.Random)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load problems")
@@ -155,6 +165,8 @@ func (s *ExamService) Start(ctx context.Context, examID uint, studentID, name st
 	if err := s.sessionRepo.CreateWithProblems(ctx, session, problems); err != nil {
 		return nil, fmt.Errorf("failed to create session")
 	}
+
+	s.attemptTracker.MarkAttempted(examID, studentID)
 
 	return s.buildStartResultFromProblems(session, exam, problems), nil
 }

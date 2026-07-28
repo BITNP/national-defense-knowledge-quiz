@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"math"
@@ -82,7 +83,7 @@ func (s *ExamService) formatTime(t time.Time) string {
 	return t.In(s.loc).Format("2006/01/02 15:04:05")
 }
 
-func (s *ExamService) Info(examID uint) (*ExamInfo, error) {
+func (s *ExamService) Info(ctx context.Context, examID uint) (*ExamInfo, error) {
 	exam, ok := s.examCache.Get(examID)
 	if !ok {
 		return nil, fmt.Errorf("exam not found")
@@ -98,7 +99,7 @@ func (s *ExamService) Info(examID uint) (*ExamInfo, error) {
 	}, nil
 }
 
-func (s *ExamService) Start(examID uint, studentID, name string) (*StartResult, error) {
+func (s *ExamService) Start(ctx context.Context, examID uint, studentID, name string) (*StartResult, error) {
 	exam, ok := s.examCache.Get(examID)
 	if !ok {
 		return nil, fmt.Errorf("exam not found")
@@ -106,7 +107,7 @@ func (s *ExamService) Start(examID uint, studentID, name string) (*StartResult, 
 
 	now := time.Now()
 
-	sessions, err := s.sessionRepo.FindSessionsByExamAndStudent(examID, studentID)
+	sessions, err := s.sessionRepo.FindSessionsByExamAndStudent(ctx, examID, studentID)
 	if err != nil {
 		return nil, fmt.Errorf("database error")
 	}
@@ -126,7 +127,7 @@ func (s *ExamService) Start(examID uint, studentID, name string) (*StartResult, 
 	}
 
 	if unfinished != nil {
-		fullSession, err := s.sessionRepo.GetByID(unfinished.ID)
+		fullSession, err := s.sessionRepo.GetByID(ctx, unfinished.ID)
 		if err != nil {
 			return nil, fmt.Errorf("failed to load session")
 		}
@@ -151,7 +152,7 @@ func (s *ExamService) Start(examID uint, studentID, name string) (*StartResult, 
 		EndTime:   now.Add(time.Duration(exam.LimitTime)*time.Second + gracePeriod),
 	}
 
-	if err := s.sessionRepo.CreateWithProblems(session, problems); err != nil {
+	if err := s.sessionRepo.CreateWithProblems(ctx, session, problems); err != nil {
 		return nil, fmt.Errorf("failed to create session")
 	}
 
@@ -183,8 +184,8 @@ func (s *ExamService) buildStartResultFromProblems(session *model.ExamSession, e
 	}
 }
 
-func (s *ExamService) Submit(logID uint, studentID, name, answersJSON string) (*SubmitResult, error) {
-	session, err := s.sessionRepo.GetByIDAndName(logID, studentID)
+func (s *ExamService) Submit(ctx context.Context, logID uint, studentID, name, answersJSON string) (*SubmitResult, error) {
+	session, err := s.sessionRepo.GetByIDAndName(ctx, logID, studentID)
 	if err != nil {
 		return nil, fmt.Errorf("session not found")
 	}
@@ -217,10 +218,10 @@ func (s *ExamService) Submit(logID uint, studentID, name, answersJSON string) (*
 
 	session.Score = &score
 
-	extra := s.runLottery(session)
+	extra := s.runLottery(ctx, session)
 	session.Extra = extra
 
-	if err := s.sessionRepo.Update(session); err != nil {
+	if err := s.sessionRepo.Update(ctx, session); err != nil {
 		return nil, fmt.Errorf("failed to save session")
 	}
 
@@ -234,7 +235,7 @@ func (s *ExamService) Submit(logID uint, studentID, name, answersJSON string) (*
 	}, nil
 }
 
-func (s *ExamService) runLottery(session *model.ExamSession) string {
+func (s *ExamService) runLottery(ctx context.Context, session *model.ExamSession) string {
 	noPrizeMsg := "很遗憾，没有中奖捏:("
 
 	if session.Score == nil || session.FullScore == 0 {
@@ -249,7 +250,7 @@ func (s *ExamService) runLottery(session *model.ExamSession) string {
 		return noPrizeMsg
 	}
 
-	prizes, err := s.prizeRepo.GetByExamID(session.ExamID)
+	prizes, err := s.prizeRepo.GetByExamID(ctx, session.ExamID)
 	if err != nil || len(prizes) == 0 {
 		return noPrizeMsg
 	}
@@ -257,7 +258,7 @@ func (s *ExamService) runLottery(session *model.ExamSession) string {
 	for attempt := 0; attempt < maxPrizeRetries && len(prizes) > 0; attempt++ {
 		target := weightedRandom(prizes)
 
-		tx := db.DB.Begin()
+		tx := db.DB.WithContext(ctx).Begin()
 		text, ok, err := s.prizeRepo.AtomicDecrement(tx, target.ID)
 		if err != nil {
 			tx.Rollback()

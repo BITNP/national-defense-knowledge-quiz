@@ -36,3 +36,16 @@ func RequestLatency() gin.HandlerFunc {
 		c.Writer.Header().Set("X-Request-Duration", fmt.Sprintf("%dms", elapsed.Milliseconds()))
 	}
 }
+
+// RequestTimeout sets a per-request timeout on the request context.
+// When the timeout fires, all downstream db.DB.WithContext(ctx) queries
+// will be cancelled, freeing connections back to the pool.
+func RequestTimeout(timeout time.Duration) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		ctx, cancel := context.WithTimeout(c.Request.Context(), timeout)
+		defer cancel()
+
+		c.Request = c.Request.WithContext(ctx)
+		c.Next()
+	}
+}

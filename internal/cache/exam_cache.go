@@ -1,6 +1,7 @@
 package cache
 
 import (
+	"context"
 	"fmt"
 	"sync"
 
@@ -19,8 +20,8 @@ func NewExamCache() *ExamCache {
 	}
 }
 
-func (c *ExamCache) LoadAll(repo *repository.ExamRepo) error {
-	all, err := repo.GetAllActive()
+func (c *ExamCache) LoadAll(ctx context.Context, repo *repository.ExamRepo) error {
+	all, err := repo.GetAllActive(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to load active exams: %w", err)
 	}

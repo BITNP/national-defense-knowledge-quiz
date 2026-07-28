@@ -1,6 +1,8 @@
 package repository
 
 import (
+	"context"
+
 	"gorm.io/gorm"
 
 	"national-defense-knowledge-quiz/internal/db"
@@ -9,24 +11,24 @@ import (
 
 type ProblemRepo struct{}
 
-func (r *ProblemRepo) GetActiveByExamID(examID uint) ([]model.Problem, error) {
+func (r *ProblemRepo) GetActiveByExamID(ctx context.Context, examID uint) ([]model.Problem, error) {
 	var problems []model.Problem
-	err := db.DB.Where("exam_id = ? AND active = ?", examID, true).Find(&problems).Error
+	err := db.DB.WithContext(ctx).Where("exam_id = ? AND active = ?", examID, true).Find(&problems).Error
 	return problems, err
 }
 
-func (r *ProblemRepo) GetRandomByExamID(examID uint, limit int) ([]model.Problem, error) {
+func (r *ProblemRepo) GetRandomByExamID(ctx context.Context, examID uint, limit int) ([]model.Problem, error) {
 	var problems []model.Problem
-	err := db.DB.Where("exam_id = ? AND active = ?", examID, true).
+	err := db.DB.WithContext(ctx).Where("exam_id = ? AND active = ?", examID, true).
 		Order("RANDOM()").
 		Limit(limit).
 		Find(&problems).Error
 	return problems, err
 }
 
-func (r *ProblemRepo) GetAllActive() (map[uint][]model.Problem, error) {
+func (r *ProblemRepo) GetAllActive(ctx context.Context) (map[uint][]model.Problem, error) {
 	var problems []model.Problem
-	if err := db.DB.Where("active = ?", true).Find(&problems).Error; err != nil {
+	if err := db.DB.WithContext(ctx).Where("active = ?", true).Find(&problems).Error; err != nil {
 		return nil, err
 	}
 	result := make(map[uint][]model.Problem, 10)
@@ -36,9 +38,9 @@ func (r *ProblemRepo) GetAllActive() (map[uint][]model.Problem, error) {
 	return result, nil
 }
 
-func (r *ProblemRepo) GetByIDs(ids []uint) ([]model.Problem, error) {
+func (r *ProblemRepo) GetByIDs(ctx context.Context, ids []uint) ([]model.Problem, error) {
 	var problems []model.Problem
-	err := db.DB.Where("id IN ?", ids).Order("id ASC").Find(&problems).Error
+	err := db.DB.WithContext(ctx).Where("id IN ?", ids).Order("id ASC").Find(&problems).Error
 	return problems, err
 }
 

@@ -47,7 +47,7 @@ func (h *ExamHandler) Info(c *gin.Context) {
 		return
 	}
 
-	info, err := h.svc.Info(id)
+	info, err := h.svc.Info(c.Request.Context(), id)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"msg": "exam not found"})
 		return
@@ -68,7 +68,7 @@ func (h *ExamHandler) Start(c *gin.Context) {
 		return
 	}
 
-	result, err := h.svc.Start(req.Exam, req.StudentID, req.Name)
+	result, err := h.svc.Start(c.Request.Context(), req.Exam, req.StudentID, req.Name)
 	if err != nil {
 		c.JSON(http.StatusForbidden, gin.H{"msg": err.Error()})
 		return
@@ -89,7 +89,7 @@ func (h *ExamHandler) Submit(c *gin.Context) {
 		return
 	}
 
-	result, err := h.svc.Submit(req.LogID, req.StudentID, req.Name, req.Answers)
+	result, err := h.svc.Submit(c.Request.Context(), req.LogID, req.StudentID, req.Name, req.Answers)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"msg": err.Error()})
 		return

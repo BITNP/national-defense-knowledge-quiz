@@ -1,6 +1,7 @@
 package cache
 
 import (
+	"context"
 	"fmt"
 	"math/rand"
 	"sync"
@@ -20,8 +21,8 @@ func NewProblemCache() *ProblemCache {
 	}
 }
 
-func (c *ProblemCache) LoadAll(repo *repository.ProblemRepo) error {
-	all, err := repo.GetAllActive()
+func (c *ProblemCache) LoadAll(ctx context.Context, repo *repository.ProblemRepo) error {
+	all, err := repo.GetAllActive(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to load active problems: %w", err)
 	}

@@ -1,8 +1,10 @@
 package main
 
 import (
+	"context"
 	"log"
 	"net/http/pprof"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
@@ -28,12 +30,12 @@ func main() {
 	db.Init(cfg.DBType, cfg.DBURL)
 
 	problemCache := cache.NewProblemCache()
-	if err := problemCache.LoadAll(&repository.ProblemRepo{}); err != nil {
+	if err := problemCache.LoadAll(context.Background(), &repository.ProblemRepo{}); err != nil {
 		log.Fatalf("failed to warm problem cache: %v", err)
 	}
 
 	examCache := cache.NewExamCache()
-	if err := examCache.LoadAll(&repository.ExamRepo{}); err != nil {
+	if err := examCache.LoadAll(context.Background(), &repository.ExamRepo{}); err != nil {
 		log.Fatalf("failed to warm exam cache: %v", err)
 	}
 
@@ -42,6 +44,7 @@ func main() {
 
 	r := gin.Default()
 	r.Use(middleware.RequestLatency())
+	r.Use(middleware.RequestTimeout(10 * time.Second))
 
 	r.GET("/", examHandler.ServeIndex)
 	r.GET("/exam/info/", examHandler.Info)

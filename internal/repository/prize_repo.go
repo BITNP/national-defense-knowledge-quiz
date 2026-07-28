@@ -1,6 +1,8 @@
 package repository
 
 import (
+	"context"
+
 	"gorm.io/gorm"
 
 	"national-defense-knowledge-quiz/internal/db"
@@ -9,9 +11,9 @@ import (
 
 type PrizeRepo struct{}
 
-func (r *PrizeRepo) GetByExamID(examID uint) ([]model.Prize, error) {
+func (r *PrizeRepo) GetByExamID(ctx context.Context, examID uint) ([]model.Prize, error) {
 	var prizes []model.Prize
-	err := db.DB.Where("exam_id = ? AND remain > ?", examID, 0).Find(&prizes).Error
+	err := db.DB.WithContext(ctx).Where("exam_id = ? AND remain > ?", examID, 0).Find(&prizes).Error
 	return prizes, err
 }
 

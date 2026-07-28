@@ -15,3 +15,9 @@ func (r *ExamRepo) GetByID(id uint) (*model.Exam, error) {
 	}
 	return &exam, nil
 }
+
+func (r *ExamRepo) GetAllActive() ([]*model.Exam, error) {
+	var exams []*model.Exam
+	err := db.DB.Where("active = ?", true).Find(&exams).Error
+	return exams, err
+}

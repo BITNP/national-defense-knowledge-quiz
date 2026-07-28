@@ -32,7 +32,12 @@ func main() {
 		log.Fatalf("failed to warm problem cache: %v", err)
 	}
 
-	examSvc := service.NewExamService(cfg.TZ, problemCache)
+	examCache := cache.NewExamCache()
+	if err := examCache.LoadAll(&repository.ExamRepo{}); err != nil {
+		log.Fatalf("failed to warm exam cache: %v", err)
+	}
+
+	examSvc := service.NewExamService(cfg.TZ, problemCache, examCache)
 	examHandler := handler.NewExamHandler(examSvc)
 
 	r := gin.Default()

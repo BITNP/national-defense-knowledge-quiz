@@ -49,6 +49,8 @@ func Init(dbType, dsn string) {
 
 	log.Printf("database connected and migrated (type=%s)", dbType)
 
+	DB.Exec("DROP INDEX IF EXISTS idx_exam_sessions_exam_id")
+
 	if dbType == "postgres" {
 		sqlDB, err := DB.DB()
 		if err != nil {

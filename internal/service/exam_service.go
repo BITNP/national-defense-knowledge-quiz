@@ -63,9 +63,10 @@ type ExamService struct {
 	sessionRepo  *repository.ExamSessionRepo
 	loc          *time.Location
 	problemCache *cache.ProblemCache
+	examCache    *cache.ExamCache
 }
 
-func NewExamService(loc *time.Location, pc *cache.ProblemCache) *ExamService {
+func NewExamService(loc *time.Location, pc *cache.ProblemCache, ec *cache.ExamCache) *ExamService {
 	return &ExamService{
 		examRepo:     &repository.ExamRepo{},
 		problemRepo:  &repository.ProblemRepo{},
@@ -73,6 +74,7 @@ func NewExamService(loc *time.Location, pc *cache.ProblemCache) *ExamService {
 		sessionRepo:  &repository.ExamSessionRepo{},
 		loc:          loc,
 		problemCache: pc,
+		examCache:    ec,
 	}
 }
 
@@ -81,9 +83,9 @@ func (s *ExamService) formatTime(t time.Time) string {
 }
 
 func (s *ExamService) Info(examID uint) (*ExamInfo, error) {
-	exam, err := s.examRepo.GetByID(examID)
-	if err != nil {
-		return nil, err
+	exam, ok := s.examCache.Get(examID)
+	if !ok {
+		return nil, fmt.Errorf("exam not found")
 	}
 	return &ExamInfo{
 		ID:          exam.ID,
@@ -97,24 +99,38 @@ func (s *ExamService) Info(examID uint) (*ExamInfo, error) {
 }
 
 func (s *ExamService) Start(examID uint, studentID, name string) (*StartResult, error) {
-	exam, err := s.examRepo.GetByID(examID)
-	if err != nil {
+	exam, ok := s.examCache.Get(examID)
+	if !ok {
 		return nil, fmt.Errorf("exam not found")
 	}
 
 	now := time.Now()
 
-	count, err := s.sessionRepo.CountFinishedOrExpired(examID, studentID, now)
+	sessions, err := s.sessionRepo.FindSessionsByExamAndStudent(examID, studentID)
 	if err != nil {
 		return nil, fmt.Errorf("database error")
 	}
-	if exam.LimitNumber > 0 && count >= int64(exam.LimitNumber) {
+
+	count := 0
+	var unfinished *model.ExamSession
+	for i := range sessions {
+		if sessions[i].Finish || !sessions[i].EndTime.After(now) {
+			count++
+		} else {
+			unfinished = &sessions[i]
+		}
+	}
+
+	if exam.LimitNumber > 0 && count >= exam.LimitNumber {
 		return nil, fmt.Errorf("提交数量已达上限（%d次）！", exam.LimitNumber)
 	}
 
-	session, err := s.sessionRepo.FindUnfinished(examID, studentID, now)
-	if err == nil && session != nil {
-		return s.buildStartResult(session, exam)
+	if unfinished != nil {
+		fullSession, err := s.sessionRepo.GetByID(unfinished.ID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load session")
+		}
+		return s.buildStartResult(fullSession, exam)
 	}
 
 	problems, err := s.problemCache.GetRandom(examID, exam.Random)
@@ -127,7 +143,7 @@ func (s *ExamService) Start(examID uint, studentID, name string) (*StartResult, 
 		fullScore += p.Score
 	}
 
-	session = &model.ExamSession{
+	session := &model.ExamSession{
 		ExamID:    examID,
 		StudentID: studentID,
 		Name:      name,

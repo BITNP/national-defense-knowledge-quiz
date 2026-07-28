@@ -26,6 +26,12 @@ func (c *ProblemCache) LoadAll(repo *repository.ProblemRepo) error {
 		return fmt.Errorf("failed to load active problems: %w", err)
 	}
 
+	for _, probs := range all {
+		for i := range probs {
+			probs[i].DataSlice = probs[i].DataArray()
+		}
+	}
+
 	c.mu.Lock()
 	c.data = all
 	c.mu.Unlock()

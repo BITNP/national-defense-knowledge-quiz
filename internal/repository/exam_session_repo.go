@@ -40,6 +40,14 @@ func (r *ExamSessionRepo) GetByIDAndName(id uint, studentID string) (*model.Exam
 	return &session, nil
 }
 
+func (r *ExamSessionRepo) FindSessionsByExamAndStudent(examID uint, studentID string) ([]model.ExamSession, error) {
+	var sessions []model.ExamSession
+	err := db.DB.Where("exam_id = ? AND student_id = ?", examID, studentID).
+		Order("id DESC").
+		Find(&sessions).Error
+	return sessions, err
+}
+
 func (r *ExamSessionRepo) CountFinishedOrExpired(examID uint, studentID string, now time.Time) (int64, error) {
 	var count int64
 	err := db.DB.Model(&model.ExamSession{}).

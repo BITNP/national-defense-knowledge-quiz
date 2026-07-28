@@ -1,0 +1,34 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: exam
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build: .
+    ports:
+      - "9000:9000"
+    environment:
+      DB_URL: "postgres://postgres:postgres@db:5432/exam?sslmode=disable"
+      PORT: "9000"
+      TZ: "Asia/Shanghai"
+      GIN_MODE: "release"
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./config/exam.json:/app/config/exam.json
+
+volumes:
+  pgdata:

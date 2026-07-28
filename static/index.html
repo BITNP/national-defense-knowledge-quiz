@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <title>OnlineTest</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script src="https://unpkg.com/axios@0.27.2/dist/axios.min.js"></script>
+  <script src="https://unpkg.com/vue@2.7.10/dist/vue.min.js"></script>
+
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Noto+Serif+SC:300,500,700,900">
+
+  <style>
+    body {
+      font-family: Noto Serif SC;
+      font-style: normal;
+      font-weight: 500;
+      color: #00566B;
+      background-image: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAwAAAAMCAYAAABWdVznAAAAGXRFWHRTb2Z0d2FyZQBBZG9iZSBJbWFnZVJlYWR5ccllPAAAACFJREFUeNpiZGBg4GegAsBlCD8TqSYNQg2Mo6FEBAAIMACdPABtrSW/IQAAAABJRU5ErkJggg==");
+      padding-top: 24px;
+    }
+
+    ::selection {
+      color: #fff;
+      background: #00bcd4;
+    }
+
+    .container {
+      max-width: 666px;
+      margin: auto;
+      text-align: center;
+      min-height: 95vh;
+    }
+
+    footer {
+      border-top: 1px solid #ccc;
+      text-align: center;
+      min-height: 5vh;
+      padding: 11px;
+    }
+
+    #title {
+      width: fit-content;
+      color: #00566B;
+      margin: auto;
+      transition: all 0.42s ease;
+    }
+
+    #title:hover {
+      color: white;
+      background-color: #00566B;
+      padding: 0px 24px 0px 24px;
+    }
+
+    .tape-head {
+      margin: -33px auto 10px;
+      width: 24%;
+      min-width: fit-content;
+      padding: 0 11px 0 11px;
+      height: 42px;
+      background-color: #EBE8D1;
+      border-right: 2px dotted #b7b49d;
+      border-left: 2px dotted #b7b49d;
+      opacity: 0.5;
+      font-size: small;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+    }
+
+    .tape {
+      position: relative;
+      background-image: url("https://s3.bmp.ovh/imgs/2024/08/31/dfc4faa0500a1265.png");
+      margin: 42px auto;
+      padding: 11px 24px 24px 24px;
+      box-shadow: 0px 1px 4px rgba(0, 0, 0, 0.24);
+      transition: all 0.24s ease;
+      text-align: left;
+    }
+
+    .tape:after {
+      content: "";
+      position: absolute;
+      z-index: -4;
+      transition: all 0.24s ease;
+      background-color: transparent;
+      bottom: 24px;
+      width: 42%;
+      height: 24px;
+      right: 10px;
+    }
+
+    .tape:hover {
+      border-radius: 0 0 42% 0 / 0 0 17px 0;
+    }
+
+    .tape:hover:after {
+      box-shadow: 6px 24px 11px rgba(0, 0, 11, 0.42);
+      transform: skew(8deg) rotate(3deg);
+    }
+
+    del {
+      opacity: 0.24;
+    }
+
+    a {
+      text-decoration: none;
+      color: #00bcd4;
+      background-repeat: no-repeat;
+      background-size: 0 2px;
+      background-position: 50% 100%;
+      background-image: linear-gradient(#00bcd4, #00bcd4);
+      transition: all 0.24s ease-in-out;
+    }
+
+    a:hover {
+      color: #00bcd4;
+      background-size: 100% 2px;
+    }
+
+    .sub {
+      opacity: 0.42;
+    }
+
+    .img-container {
+      text-align: center;
+      font-size: small;
+      margin-top: 24px;
+      margin-bottom: 24px;
+    }
+
+    img {
+      width: 100%;
+      max-width: 424px;
+      border-radius: 11px;
+    }
+
+    ul,
+    ol {
+      padding-left: 24px;
+      margin-top: 4px;
+    }
+
+    #hitokoto {
+      width: fit-content;
+      text-align: left;
+      margin: auto;
+      padding: 11px;
+    }
+
+    b {
+      font-weight: 900;
+    }
+
+    input,
+    select,
+    textarea,
+    button {
+      color: inherit;
+      font-family: inherit;
+      font-size: inherit;
+      flex-shrink: 0;
+    }
+
+    input[type=text] {
+      background-color: #fafafa;
+      padding: 11px;
+      border: none;
+      border-radius: 11px;
+      box-shadow:
+        inset -6px -6px 6px #fff,
+        inset 6px 6px 6px #eee;
+      transition: all 0.24s ease;
+      max-width: 100%;
+    }
+
+    input[type=text]:focus {
+      outline: none;
+      box-shadow:
+        -6px -6px 6px #fff,
+        6px 6px 6px #eee;
+    }
+
+    input[type=radio] {
+      appearance: none;
+      background-color: #fafafa;
+      border: 0 solid #E3F9FF;
+      border-radius: 50%;
+      box-shadow:
+        4px 4px 4px #eee,
+        -4px -4px 4px #fff,
+        inset -4px -4px 4px #fff,
+        inset 4px 4px 4px #eee;
+      padding: 0;
+      margin: 4px;
+      width: 1.24em;
+      height: 1.24em;
+      transition: all 0.11s ease;
+    }
+
+    input[type=radio]:checked,
+    input[type=checkbox]:checked {
+      background-color: #00bcd4;
+      border: 4px solid #E3F9FF;
+      box-shadow:
+        -4px -4px 4px #fff,
+        4px 4px 4px #ddd;
+    }
+
+    input[type=radio]:hover,
+    input[type=checkbox]:hover {
+      background-color: #94EAFF;
+      border: 4px solid #E3F9FF;
+      box-shadow:
+        -4px -4px 4px #fff,
+        4px 4px 4px #ddd;
+    }
+
+    input[type=checkbox] {
+      appearance: none;
+      background-color: #fafafa;
+      border: 0 solid #E3F9FF;
+      box-shadow:
+        4px 4px 4px #eee,
+        -4px -4px 4px #fff,
+        inset -4px -4px 4px #fff,
+        inset 4px 4px 4px #eee;
+      padding: 0;
+      margin: 4px;
+      width: 1.24em;
+      height: 1.24em;
+      transition: all 0.11s ease;
+    }
+
+    input[type=checkbox]:checked {
+      background-color: #00bcd4;
+      border: 4px solid #E3F9FF;
+      box-shadow:
+        -4px -4px 4px #fff,
+        4px 4px 4px #ddd;
+    }
+
+    button {
+      background-color: #fafafa;
+      padding: 11px;
+      border: none;
+      border-radius: 11px;
+      box-shadow:
+        -6px -6px 6px #fff,
+        6px 6px 6px #eee;
+    }
+
+    button:active {
+      outline: none;
+      box-shadow:
+        inset -6px -6px 6px #fff,
+        inset 6px 6px 6px #eee;
+    }
+
+    button:disabled {
+      opacity: 0.24;
+      box-shadow: none;
+      cursor: not-allowed;
+    }
+
+    .input_container {
+      margin: 11px;
+      display: flex;
+      align-items: center;
+    }
+
+    .no_click {
+      pointer-events: none;
+    }
+
+    #float {
+      opacity: 0.84;
+      position: fixed;
+      margin: auto;
+      left: 0;
+      right: 0;
+      bottom: 11px;
+      width: fit-content;
+      height: fit-content;
+      padding: 4px 11px;
+      background-color: #fff;
+      border-radius: 11px;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="app">
+    <div class="container">
+      <h1 id="title">{{exam.title}}</h1>
+      <p>{{hitokoto}}</p>
+
+      <div class="tape">
+        <div class="tape-head">序 | Intro</div>
+        <p id="intro" v-html="exam.intro"></p>
+        <p id="profile"></p>
+        <p v-if="result.score!=-1">得分：{{result.score}}/{{result.full_score}} |
+          耗时：{{FormatTime((result.end_time-result.start_time)/1000)}}<br />{{result.extra}}</p>
+        <div v-if="!exam.problems.length">
+          <div class="input_container">
+            学号：<input type="text" v-model="sid">
+          </div>
+          <div class="input_container">
+            姓名：<input type="text" v-model="name">
+          </div>
+          <button @click.once="StartExam" :disabled="!sid || !name">直接来吧！</button>
+        </div>
+      </div>
+
+      <div class="tape" v-if="exam.problems.length" :class="{no_click:result.score!=-1}">
+        <div class="tape-head">题目 | Problem</div>
+        <div v-for="(i,ind) in exam.problems">
+          <p>{{ind + 1}}. {{i.text}} ({{i.score}}分)</p>
+          <div v-for="(ii,iind) in i.data" class="input_container">
+            <input :type="i.type" :name="`p_${ind}`" :id="`p_${ind}_${iind}`" :value="ii" v-model="i.value">
+            <label :for="`p_${ind}_${iind}`">{{ii}}</label>
+          </div>
+          <p>{{i.msg}}</p>
+          <br />
+        </div>
+        <button @click="SubmitExam" v-if="result.score==-1">交卷</button>
+      </div>
+
+    </div>
+
+    <div v-show="res_time" id="float">剩余时间：{{FormatTime(res_time)}}</div>
+  </div>
+
+  <footer>
+    Powered⚡ by <a href="https://github.com/flwfdd" target="_blank">fdd</a> with 💖.<br />
+    <a href="https://www.bitnp.net" target="_blank">北京理工大学网络开拓者协会</a> 版权所有
+  </footer>
+
+  <script>
+    axios.interceptors.response.use(function (response) {
+      return response;
+    }, function (error) {
+      if (error.response.data.msg) {
+        alert(error.response.data.msg);
+      }
+      else alert("出错了Orz");
+      window.location.reload();
+      return Promise.reject(error);
+    });
+
+    vm = new Vue({
+      el: "#app",
+      data: {
+        hitokoto: "",
+        apiurl: "",
+        sid: "",
+        name: "",
+        exam: {
+          id: "1",
+          title: "OnlineTest | 在线测试",
+          intro: "简介",
+          limit_time: 233,
+          log_id: 0,
+          problems: []
+        },
+        res_time: 0,
+        interval_pool: [],
+        result: {
+          full_score: 0,
+          score: -1,
+          start_time: 0,
+          end_time: 0,
+          extra: "",
+        }
+      },
+      methods: {
+        InitExam() {
+          axios.get(this.apiurl + "/exam/info/?exam=" + this.exam.id)
+            .then(res => {
+              this.exam.title = res.data.title;
+              this.exam.intro = res.data.intro;
+              this.exam.limit_time = res.data.limit_time;
+            })
+        },
+        StartExam() {
+          axios.post(this.apiurl + "/exam/start/", {
+            exam: 1,
+            student_id: this.sid,
+            name: this.name,
+          }).then(res => {
+            this.exam.log_id = res.data.log_id;
+            this.exam.problems = res.data.problems;
+            this.result.start_time = new Date(res.data.start_time);
+            this.res_time = (new Date(res.data.end_time) - new Date()) / 1000;
+            this.interval_pool.push(setInterval(() => {
+              this.res_time -= 1
+            }, 1000));
+            this.interval_pool.push(setInterval(this.SubmitExam, this.res_time * 1000));
+          })
+        },
+        SubmitExam() {
+          while (this.interval_pool.length) {
+            clearInterval(this.interval_pool.pop());
+          }
+          this.res_time = 0;
+
+          l = [];
+          for (let i of this.exam.problems) {
+            if (i.value) l.push(i.value);
+            else l.push("")
+          }
+          axios.post(this.apiurl + "/exam/submit/", {
+            log_id: this.exam.log_id,
+            student_id: this.sid,
+            name: this.name,
+            answers: JSON.stringify(l),
+          }).then(res => {
+            this.result.start_time = new Date(res.data.start_time);
+            this.result.end_time = new Date(res.data.end_time);
+            this.result.score = res.data.score;
+            this.result.full_score = res.data.full_score;
+            this.result.extra = res.data.extra;
+            for (let i in res.data.result) {
+              if (res.data.result[i].ac) this.exam.problems[i].msg = "✅回答正确！";
+              else this.exam.problems[i].msg = `❌正确答案为 ${res.data.result[i].answer}`;
+            }
+            document.oncontextmenu = function () { return true; };
+            document.onselectstart = function () { return true; };
+            window.scrollTo(0, 0);
+          })
+        },
+        FormatDate(t) {
+          if (!t) return "No Time";
+          dt = new Date().getTime() / 1000 - t;
+          if (dt < 60) return Math.round(dt) + "秒前";
+          if (dt < 60 * 60) return Math.round(dt / 60) + "分钟前";
+          if (dt < 12 * 60 * 60) return Math.round(dt / 60 / 60) + "小时前"
+
+          var now = new Date(t * 1000);
+          var year = now.getFullYear();
+          var month = now.getMonth() + 1;
+          var date = now.getDate();
+          var hour = now.getHours();
+          var minute = now.getMinutes();
+          var second = now.getSeconds();
+          return year + "-" + month + "-" + date + " " + hour + ":" + minute + ":" + second;
+        },
+        FormatTime(t) {
+          t = Math.round(t);
+          let m = Math.floor(t / 60);
+          let s = t - m * 60;
+          let h = Math.floor(m / 50);
+          m -= h * 60;
+          return `${h}时${m}分${s}秒`;
+        },
+        UpHitokoto() {
+          axios.get("https://v1.hitokoto.cn/")
+            .then(res => {
+              this.hitokoto = res.data.hitokoto + "  ——" + res.data.from;
+            })
+        },
+      },
+      created() {
+        document.oncontextmenu = function () { return false; };
+        document.onselectstart = function () { return false; };
+        this.UpHitokoto();
+        setInterval(this.UpHitokoto, 11 * 1000);
+        this.InitExam();
+      }
+    })
+  </script>
+
+  <script>
+    !function (e, t, a) { function r() { for (var e = 0; e < s.length; e++) s[e].alpha <= 0 ? (t.body.removeChild(s[e].el), s.splice(e, 1)) : (s[e].y--, s[e].scale += .004, s[e].alpha -= .013, s[e].el.style.cssText = "left:" + s[e].x + "px;top:" + s[e].y + "px;opacity:" + s[e].alpha + ";transform:scale(" + s[e].scale + "," + s[e].scale + ") rotate(45deg);background:" + s[e].color + ";z-index:99999"); requestAnimationFrame(r) } function n() { var t = "function" == typeof e.onclick && e.onclick; e.onclick = function (e) { t && t(), o(e) } } function o(e) { var a = t.createElement("div"); a.className = "heart", s.push({ el: a, x: e.clientX - 5, y: e.clientY - 5, scale: 1, alpha: 1, color: c() }), t.body.appendChild(a) } function i(e) { var a = t.createElement("style"); a.type = "text/css"; try { a.appendChild(t.createTextNode(e)) } catch (t) { a.styleSheet.cssText = e } t.getElementsByTagName("head")[0].appendChild(a) } function c() { return "rgb(" + ~~(255 * Math.random()) + "," + ~~(255 * Math.random()) + "," + ~~(255 * Math.random()) + ")" } var s = []; e.requestAnimationFrame = e.requestAnimationFrame || e.webkitRequestAnimationFrame || e.mozRequestAnimationFrame || e.oRequestAnimationFrame || e.msRequestAnimationFrame || function (e) { setTimeout(e, 1e3 / 60) }, i(".heart{width: 10px;height: 10px;position: fixed;background: #f00;transform: rotate(45deg);-webkit-transform: rotate(45deg);-moz-transform: rotate(45deg);}.heart:after,.heart:before{content: '';width: inherit;height: inherit;background: inherit;border-radius: 50%;-webkit-border-radius: 50%;-moz-border-radius: 50%;position: fixed;}.heart:after{top: -5px;}.heart:before{left: -5px;}"), n(), r() }(window, document);
+  </script>
+
+</body>
+
+</html>

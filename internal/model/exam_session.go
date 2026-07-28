@@ -14,10 +14,10 @@ type ExamSession struct {
 	Name          string    `gorm:"type:varchar(255);not null"`
 	FullScore     int       `gorm:"not null"`
 	Score         *int      `gorm:""`
-	SubmitAnswers string    `gorm:"type:jsonb"`
-	StartTime     time.Time `gorm:"not null;default:now()"`
+	SubmitAnswers string    `gorm:"type:json"`
+	StartTime     time.Time `gorm:"not null"`
 	EndTime       time.Time `gorm:"not null"`
-	Finish        bool      `gorm:"not null;default:false"`
+	Finish        bool      `gorm:"not null"`
 	Extra         string    `gorm:"type:text"`
 	CreatedAt     time.Time
 	UpdatedAt     time.Time

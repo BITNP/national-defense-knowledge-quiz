@@ -7,6 +7,7 @@ import (
 	"math/rand"
 	"time"
 
+	"national-defense-knowledge-quiz/internal/cache"
 	"national-defense-knowledge-quiz/internal/db"
 	"national-defense-knowledge-quiz/internal/model"
 	"national-defense-knowledge-quiz/internal/repository"
@@ -56,20 +57,22 @@ type SubmitResult struct {
 }
 
 type ExamService struct {
-	examRepo    *repository.ExamRepo
-	problemRepo *repository.ProblemRepo
-	prizeRepo   *repository.PrizeRepo
-	sessionRepo *repository.ExamSessionRepo
-	loc         *time.Location
+	examRepo     *repository.ExamRepo
+	problemRepo  *repository.ProblemRepo
+	prizeRepo    *repository.PrizeRepo
+	sessionRepo  *repository.ExamSessionRepo
+	loc          *time.Location
+	problemCache *cache.ProblemCache
 }
 
-func NewExamService(loc *time.Location) *ExamService {
+func NewExamService(loc *time.Location, pc *cache.ProblemCache) *ExamService {
 	return &ExamService{
-		examRepo:    &repository.ExamRepo{},
-		problemRepo: &repository.ProblemRepo{},
-		prizeRepo:   &repository.PrizeRepo{},
-		sessionRepo: &repository.ExamSessionRepo{},
-		loc:         loc,
+		examRepo:     &repository.ExamRepo{},
+		problemRepo:  &repository.ProblemRepo{},
+		prizeRepo:    &repository.PrizeRepo{},
+		sessionRepo:  &repository.ExamSessionRepo{},
+		loc:          loc,
+		problemCache: pc,
 	}
 }
 
@@ -114,12 +117,7 @@ func (s *ExamService) Start(examID uint, studentID, name string) (*StartResult, 
 		return s.buildStartResult(session, exam)
 	}
 
-	var problems []model.Problem
-	if exam.Random > 0 {
-		problems, err = s.problemRepo.GetRandomByExamID(examID, exam.Random)
-	} else {
-		problems, err = s.problemRepo.GetActiveByExamID(examID)
-	}
+	problems, err := s.problemCache.GetRandom(examID, exam.Random)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load problems")
 	}
@@ -141,18 +139,16 @@ func (s *ExamService) Start(examID uint, studentID, name string) (*StartResult, 
 		return nil, fmt.Errorf("failed to create session")
 	}
 
-	return s.buildStartResult(session, exam)
+	return s.buildStartResultFromProblems(session, exam, problems), nil
 }
 
 func (s *ExamService) buildStartResult(session *model.ExamSession, exam *model.Exam) (*StartResult, error) {
-	// Reload with problems preloaded
-	session, err := s.sessionRepo.GetByID(session.ID)
-	if err != nil {
-		return nil, err
-	}
+	return s.buildStartResultFromProblems(session, exam, session.Problems), nil
+}
 
-	items := make([]ProblemItem, len(session.Problems))
-	for i, p := range session.Problems {
+func (s *ExamService) buildStartResultFromProblems(session *model.ExamSession, exam *model.Exam, problems []model.Problem) *StartResult {
+	items := make([]ProblemItem, len(problems))
+	for i, p := range problems {
 		items[i] = ProblemItem{
 			Type:  p.Type,
 			Text:  p.Text,
@@ -168,7 +164,7 @@ func (s *ExamService) buildStartResult(session *model.ExamSession, exam *model.E
 		EndTime:   s.formatTime(session.EndTime.Add(-gracePeriod)),
 		LogID:     session.ID,
 		Problems:  items,
-	}, nil
+	}
 }
 
 func (s *ExamService) Submit(logID uint, studentID, name, answersJSON string) (*SubmitResult, error) {

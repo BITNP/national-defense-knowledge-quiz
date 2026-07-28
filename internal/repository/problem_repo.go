@@ -24,6 +24,18 @@ func (r *ProblemRepo) GetRandomByExamID(examID uint, limit int) ([]model.Problem
 	return problems, err
 }
 
+func (r *ProblemRepo) GetAllActive() (map[uint][]model.Problem, error) {
+	var problems []model.Problem
+	if err := db.DB.Where("active = ?", true).Find(&problems).Error; err != nil {
+		return nil, err
+	}
+	result := make(map[uint][]model.Problem, 10)
+	for i := range problems {
+		result[problems[i].ExamID] = append(result[problems[i].ExamID], problems[i])
+	}
+	return result, nil
+}
+
 func (r *ProblemRepo) GetByIDs(ids []uint) ([]model.Problem, error) {
 	var problems []model.Problem
 	err := db.DB.Where("id IN ?", ids).Order("id ASC").Find(&problems).Error

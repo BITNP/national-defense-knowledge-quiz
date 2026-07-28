@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"strings"
 	"time"
 
 	"gorm.io/gorm"
@@ -63,7 +64,35 @@ func (r *ExamSessionRepo) CreateWithProblems(session *model.ExamSession, problem
 		if err := tx.Create(session).Error; err != nil {
 			return err
 		}
-		return tx.Model(session).Association("Problems").Replace(problems)
+
+		if len(problems) == 0 {
+			return nil
+		}
+
+		const batchSize = 500
+		for start := 0; start < len(problems); start += batchSize {
+			end := start + batchSize
+			if end > len(problems) {
+				end = len(problems)
+			}
+
+			sql := strings.Builder{}
+			sql.WriteString("INSERT INTO exam_session_problems (exam_session_id, problem_id) VALUES ")
+
+			args := make([]interface{}, 0, (end-start)*2)
+			for j := start; j < end; j++ {
+				if j > start {
+					sql.WriteString(", ")
+				}
+				sql.WriteString("(?, ?)")
+				args = append(args, session.ID, problems[j].ID)
+			}
+
+			if err := tx.Exec(sql.String(), args...).Error; err != nil {
+				return err
+			}
+		}
+		return nil
 	})
 }
 

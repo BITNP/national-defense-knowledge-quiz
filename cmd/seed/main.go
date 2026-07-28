@@ -45,7 +45,7 @@ type ExamConfig struct {
 func main() {
 	_ = godotenv.Load()
 	cfg := config.Load()
-	db.Init(cfg.DBURL)
+	db.Init(cfg.DBType, cfg.DBURL)
 
 	configFile := cfg.ConfigPath
 	if len(os.Args) > 1 {

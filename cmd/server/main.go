@@ -7,10 +7,12 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 
+	"national-defense-knowledge-quiz/internal/cache"
 	"national-defense-knowledge-quiz/internal/config"
 	"national-defense-knowledge-quiz/internal/db"
 	"national-defense-knowledge-quiz/internal/handler"
 	"national-defense-knowledge-quiz/internal/middleware"
+	"national-defense-knowledge-quiz/internal/repository"
 	"national-defense-knowledge-quiz/internal/service"
 )
 
@@ -23,9 +25,14 @@ func main() {
 		gin.SetMode(gin.ReleaseMode)
 	}
 
-	db.Init(cfg.DBURL)
+	db.Init(cfg.DBType, cfg.DBURL)
 
-	examSvc := service.NewExamService(cfg.TZ)
+	problemCache := cache.NewProblemCache()
+	if err := problemCache.LoadAll(&repository.ProblemRepo{}); err != nil {
+		log.Fatalf("failed to warm problem cache: %v", err)
+	}
+
+	examSvc := service.NewExamService(cfg.TZ, problemCache)
 	examHandler := handler.NewExamHandler(examSvc)
 
 	r := gin.Default()

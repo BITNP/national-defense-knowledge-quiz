@@ -6,6 +6,7 @@ import (
 )
 
 type Config struct {
+	DBType     string // "sqlite" or "postgres"
 	DBURL      string
 	Port       string
 	GinMode    string
@@ -15,7 +16,8 @@ type Config struct {
 
 func Load() *Config {
 	cfg := &Config{
-		DBURL:      getEnv("DB_URL", "postgres://postgres:postgres@localhost:5432/exam?sslmode=disable"),
+		DBType:     getEnv("DB_TYPE", "sqlite"),
+		DBURL:      getEnv("DB_URL", "./dev.db"),
 		Port:       getEnv("PORT", "9000"),
 		GinMode:    getEnv("GIN_MODE", "debug"),
 		ConfigPath: getEnv("CONFIG_PATH", "./config/exam.json"),

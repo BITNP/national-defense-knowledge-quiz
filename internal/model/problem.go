@@ -10,7 +10,7 @@ type Problem struct {
 	ExamID    uint   `gorm:"not null;index"`
 	Type      string `gorm:"type:varchar(24);not null"`
 	Text      string `gorm:"type:text;not null"`
-	Data      string `gorm:"type:jsonb;not null"`
+	Data      string `gorm:"type:json;not null"`
 	Answer    string `gorm:"type:text;not null"`
 	Score     int    `gorm:"not null"`
 	Active    bool   `gorm:"not null;default:true"`

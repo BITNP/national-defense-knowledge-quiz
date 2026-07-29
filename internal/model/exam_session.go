@@ -3,8 +3,6 @@ package model
 import (
 	"encoding/json"
 	"time"
-
-	"gorm.io/gorm"
 )
 
 type ExamSession struct {
@@ -21,15 +19,6 @@ type ExamSession struct {
 	Extra         string    `gorm:"type:text"`
 	CreatedAt     time.Time
 	UpdatedAt     time.Time
-
-	Problems []Problem `gorm:"many2many:exam_session_problems;joinForeignKey:ExamSessionID;joinReferences:ProblemID"`
-}
-
-func (s *ExamSession) BeforeCreate(tx *gorm.DB) error {
-	if s.SubmitAnswers == "" {
-		s.SubmitAnswers = "[]"
-	}
-	return nil
 }
 
 func (s *ExamSession) SubmitAnswersArray() []string {

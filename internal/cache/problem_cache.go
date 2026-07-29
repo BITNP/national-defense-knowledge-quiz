@@ -53,6 +53,28 @@ func (c *ProblemCache) Get(examID uint) ([]model.Problem, bool) {
 	return probs, ok
 }
 
+func (c *ProblemCache) GetByIDs(examID uint, ids []uint) ([]model.Problem, error) {
+	c.mu.RLock()
+	all, ok := c.data[examID]
+	c.mu.RUnlock()
+	if !ok {
+		return nil, fmt.Errorf("no problems found for exam %d", examID)
+	}
+	byID := make(map[uint]model.Problem, len(all))
+	for _, p := range all {
+		byID[p.ID] = p
+	}
+	result := make([]model.Problem, len(ids))
+	for i, id := range ids {
+		p, ok := byID[id]
+		if !ok {
+			return nil, fmt.Errorf("problem %d not found in cache", id)
+		}
+		result[i] = p
+	}
+	return result, nil
+}
+
 func (c *ProblemCache) GetRandom(examID uint, n int) ([]model.Problem, error) {
 	all, ok := c.Get(examID)
 	if !ok {

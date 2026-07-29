@@ -31,7 +31,7 @@ func (r *ExamSessionRepo) Update(ctx context.Context, session *model.ExamSession
 
 func (r *ExamSessionRepo) GetByID(ctx context.Context, id uint) (*model.ExamSession, error) {
 	var session model.ExamSession
-	err := db.DB.WithContext(ctx).Preload("Problems").First(&session, id).Error
+	err := db.DB.WithContext(ctx).First(&session, id).Error
 	if err != nil {
 		return nil, err
 	}
@@ -40,7 +40,7 @@ func (r *ExamSessionRepo) GetByID(ctx context.Context, id uint) (*model.ExamSess
 
 func (r *ExamSessionRepo) GetByIDAndName(ctx context.Context, id uint, studentID string) (*model.ExamSession, error) {
 	var session model.ExamSession
-	err := db.DB.WithContext(ctx).Preload("Problems").
+	err := db.DB.WithContext(ctx).
 		Where("id = ? AND student_id = ?", id, studentID).
 		First(&session).Error
 	if err != nil {
@@ -106,6 +106,35 @@ func (r *ExamSessionRepo) FindUnfinished(ctx context.Context, examID uint, stude
 		return nil, err
 	}
 	return &session, nil
+}
+
+func (r *ExamSessionRepo) GetProblemIDsBySessionID(ctx context.Context, sessionID uint) ([]uint, error) {
+	var ids []uint
+	err := db.DB.WithContext(ctx).Table("exam_session_problems").
+		Where("exam_session_id = ?", sessionID).
+		Order("problem_id").
+		Pluck("problem_id", &ids).Error
+	return ids, err
+}
+
+func (r *ExamSessionRepo) GetAllProblemIDs(ctx context.Context) (map[uint][]uint, error) {
+	type row struct {
+		SessionID uint
+		ProblemID uint
+	}
+	var rows []row
+	err := db.DB.WithContext(ctx).Table("exam_session_problems").
+		Select("exam_session_id AS session_id, problem_id").
+		Order("exam_session_id, problem_id").
+		Scan(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+	result := make(map[uint][]uint, len(rows))
+	for _, r := range rows {
+		result[r.SessionID] = append(result[r.SessionID], r.ProblemID)
+	}
+	return result, nil
 }
 
 func (r *ExamSessionRepo) CreateWithProblems(ctx context.Context, session *model.ExamSession, problems []model.Problem) error {

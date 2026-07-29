@@ -49,7 +49,12 @@ func main() {
 		log.Fatalf("failed to warm prize cache: %v", err)
 	}
 
-	examSvc := service.NewExamService(cfg.TZ, problemCache, examCache, prizeCache, attemptTracker)
+	sessionProblemCache := cache.NewSessionProblemCache()
+	if err := sessionProblemCache.LoadAll(context.Background(), &repository.ExamSessionRepo{}); err != nil {
+		log.Fatalf("failed to warm session problem cache: %v", err)
+	}
+
+	examSvc := service.NewExamService(cfg.TZ, problemCache, examCache, prizeCache, sessionProblemCache, attemptTracker)
 	examHandler := handler.NewExamHandler(examSvc)
 
 	r := gin.Default()

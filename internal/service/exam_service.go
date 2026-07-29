@@ -58,28 +58,30 @@ type SubmitResult struct {
 }
 
 type ExamService struct {
-	examRepo       *repository.ExamRepo
-	problemRepo    *repository.ProblemRepo
-	prizeRepo      *repository.PrizeRepo
-	sessionRepo    *repository.ExamSessionRepo
-	loc            *time.Location
-	problemCache   *cache.ProblemCache
-	examCache      *cache.ExamCache
-	prizeCache     *cache.PrizeCache
-	attemptTracker *cache.AttemptTracker
+	examRepo            *repository.ExamRepo
+	problemRepo         *repository.ProblemRepo
+	prizeRepo           *repository.PrizeRepo
+	sessionRepo         *repository.ExamSessionRepo
+	loc                 *time.Location
+	problemCache        *cache.ProblemCache
+	examCache           *cache.ExamCache
+	prizeCache          *cache.PrizeCache
+	sessionProblemCache *cache.SessionProblemCache
+	attemptTracker      *cache.AttemptTracker
 }
 
-func NewExamService(loc *time.Location, pc *cache.ProblemCache, ec *cache.ExamCache, prc *cache.PrizeCache, at *cache.AttemptTracker) *ExamService {
+func NewExamService(loc *time.Location, pc *cache.ProblemCache, ec *cache.ExamCache, prc *cache.PrizeCache, spc *cache.SessionProblemCache, at *cache.AttemptTracker) *ExamService {
 	return &ExamService{
-		examRepo:       &repository.ExamRepo{},
-		problemRepo:    &repository.ProblemRepo{},
-		prizeRepo:      &repository.PrizeRepo{},
-		sessionRepo:    &repository.ExamSessionRepo{},
-		loc:            loc,
-		problemCache:   pc,
-		examCache:      ec,
-		prizeCache:     prc,
-		attemptTracker: at,
+		examRepo:            &repository.ExamRepo{},
+		problemRepo:         &repository.ProblemRepo{},
+		prizeRepo:           &repository.PrizeRepo{},
+		sessionRepo:         &repository.ExamSessionRepo{},
+		loc:                 loc,
+		problemCache:        pc,
+		examCache:           ec,
+		prizeCache:          prc,
+		sessionProblemCache: spc,
+		attemptTracker:      at,
 	}
 }
 
@@ -123,7 +125,11 @@ func (s *ExamService) Start(ctx context.Context, examID uint, studentID, name st
 		if err != nil {
 			return nil, fmt.Errorf("failed to load session")
 		}
-		return s.buildStartResult(fullSession, exam)
+		problems, err := s.loadProblemsBySession(ctx, fullSession.ID, fullSession.ExamID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load problems")
+		}
+		return s.buildStartResult(fullSession, exam, problems)
 	}
 
 	return s.createNewSession(ctx, exam, examID, studentID, name, now)
@@ -141,24 +147,43 @@ func (s *ExamService) createNewSession(ctx context.Context, exam *model.Exam, ex
 	}
 
 	session := &model.ExamSession{
-		ExamID:    examID,
-		StudentID: studentID,
-		Name:      name,
-		FullScore: fullScore,
-		EndTime:   now.Add(time.Duration(exam.LimitTime)*time.Second + gracePeriod),
+		ExamID:        examID,
+		StudentID:     studentID,
+		Name:          name,
+		FullScore:     fullScore,
+		StartTime:     now,
+		EndTime:       now.Add(time.Duration(exam.LimitTime)*time.Second + gracePeriod),
+		SubmitAnswers: "[]",
 	}
 
 	if err := s.sessionRepo.CreateWithProblems(ctx, session, problems); err != nil {
 		return nil, fmt.Errorf("failed to create session")
 	}
 
+	problemIDs := make([]uint, len(problems))
+	for i := range problems {
+		problemIDs[i] = problems[i].ID
+	}
+	s.sessionProblemCache.Register(session.ID, problemIDs)
 	s.attemptTracker.RegisterActive(examID, studentID, session.ID, session.EndTime)
 
 	return s.buildStartResultFromProblems(session, exam, problems), nil
 }
 
-func (s *ExamService) buildStartResult(session *model.ExamSession, exam *model.Exam) (*StartResult, error) {
-	return s.buildStartResultFromProblems(session, exam, session.Problems), nil
+func (s *ExamService) loadProblemsBySession(ctx context.Context, sessionID, examID uint) ([]model.Problem, error) {
+	ids, ok := s.sessionProblemCache.Get(sessionID)
+	if !ok {
+		var err error
+		ids, err = s.sessionRepo.GetProblemIDsBySessionID(ctx, sessionID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load problem IDs: %w", err)
+		}
+	}
+	return s.problemCache.GetByIDs(examID, ids)
+}
+
+func (s *ExamService) buildStartResult(session *model.ExamSession, exam *model.Exam, problems []model.Problem) (*StartResult, error) {
+	return s.buildStartResultFromProblems(session, exam, problems), nil
 }
 
 func (s *ExamService) buildStartResultFromProblems(session *model.ExamSession, exam *model.Exam, problems []model.Problem) *StartResult {
@@ -192,6 +217,11 @@ func (s *ExamService) Submit(ctx context.Context, logID uint, studentID, name, a
 		return nil, fmt.Errorf("超出时间限制")
 	}
 
+	problems, err := s.loadProblemsBySession(ctx, session.ID, session.ExamID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load problems")
+	}
+
 	var submitAnswers []string
 	if err := json.Unmarshal([]byte(answersJSON), &submitAnswers); err != nil {
 		return nil, fmt.Errorf("invalid answers format")
@@ -203,9 +233,9 @@ func (s *ExamService) Submit(ctx context.Context, logID uint, studentID, name, a
 	session.Finish = true
 
 	score := 0
-	results := make([]SubmitResultItem, len(session.Problems))
+	results := make([]SubmitResultItem, len(problems))
 
-	for i, p := range session.Problems {
+	for i, p := range problems {
 		if i < len(submitAnswers) && submitAnswers[i] == p.Answer {
 			results[i] = SubmitResultItem{AC: true}
 			score += p.Score
@@ -223,6 +253,7 @@ func (s *ExamService) Submit(ctx context.Context, logID uint, studentID, name, a
 		return nil, fmt.Errorf("failed to save session")
 	}
 
+	s.sessionProblemCache.Unregister(session.ID)
 	s.attemptTracker.MarkFinished(session.ExamID, session.StudentID, session.ID)
 
 	return &SubmitResult{

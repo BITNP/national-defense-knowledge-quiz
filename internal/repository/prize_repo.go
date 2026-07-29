@@ -11,6 +11,12 @@ import (
 
 type PrizeRepo struct{}
 
+func (r *PrizeRepo) GetAll(ctx context.Context) ([]model.Prize, error) {
+	var prizes []model.Prize
+	err := db.DB.WithContext(ctx).Find(&prizes).Error
+	return prizes, err
+}
+
 func (r *PrizeRepo) GetByExamID(ctx context.Context, examID uint) ([]model.Prize, error) {
 	var prizes []model.Prize
 	err := db.DB.WithContext(ctx).Where("exam_id = ? AND remain > ?", examID, 0).Find(&prizes).Error

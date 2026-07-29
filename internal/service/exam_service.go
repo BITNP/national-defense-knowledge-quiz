@@ -65,10 +65,11 @@ type ExamService struct {
 	loc            *time.Location
 	problemCache   *cache.ProblemCache
 	examCache      *cache.ExamCache
+	prizeCache     *cache.PrizeCache
 	attemptTracker *cache.AttemptTracker
 }
 
-func NewExamService(loc *time.Location, pc *cache.ProblemCache, ec *cache.ExamCache, at *cache.AttemptTracker) *ExamService {
+func NewExamService(loc *time.Location, pc *cache.ProblemCache, ec *cache.ExamCache, prc *cache.PrizeCache, at *cache.AttemptTracker) *ExamService {
 	return &ExamService{
 		examRepo:       &repository.ExamRepo{},
 		problemRepo:    &repository.ProblemRepo{},
@@ -77,6 +78,7 @@ func NewExamService(loc *time.Location, pc *cache.ProblemCache, ec *cache.ExamCa
 		loc:            loc,
 		problemCache:   pc,
 		examCache:      ec,
+		prizeCache:     prc,
 		attemptTracker: at,
 	}
 }
@@ -248,8 +250,8 @@ func (s *ExamService) runLottery(ctx context.Context, session *model.ExamSession
 		return noPrizeMsg
 	}
 
-	prizes, err := s.prizeRepo.GetByExamID(ctx, session.ExamID)
-	if err != nil || len(prizes) == 0 {
+	prizes := s.prizeCache.GetByExamID(session.ExamID)
+	if len(prizes) == 0 {
 		return noPrizeMsg
 	}
 
@@ -265,10 +267,12 @@ func (s *ExamService) runLottery(ctx context.Context, session *model.ExamSession
 		if !ok {
 			tx.Rollback()
 			prizes = removePrize(prizes, target.ID)
+			s.prizeCache.DecrementRemain(session.ExamID, target.ID)
 			continue
 		}
 
 		tx.Commit()
+		s.prizeCache.DecrementRemain(session.ExamID, target.ID)
 		return fmt.Sprintf("恭喜获得%s！", text)
 	}
 

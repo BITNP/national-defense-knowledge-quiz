@@ -81,7 +81,14 @@ func main() {
 		if result.Error == nil {
 			exam.ID = existing.ID
 			exam.CreatedAt = existing.CreatedAt
-			if err := tx.Save(&exam).Error; err != nil {
+			if err := tx.Model(&existing).Updates(map[string]interface{}{
+				"title":        exam.Title,
+				"intro":        exam.Intro,
+				"limit_time":   exam.LimitTime,
+				"random":       exam.Random,
+				"limit_number": exam.LimitNumber,
+				"active":       exam.Active,
+			}).Error; err != nil {
 				return fmt.Errorf("failed to update exam: %w", err)
 			}
 		} else {

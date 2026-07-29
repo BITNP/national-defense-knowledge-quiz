@@ -18,7 +18,15 @@ func (r *ExamSessionRepo) Create(ctx context.Context, session *model.ExamSession
 }
 
 func (r *ExamSessionRepo) Update(ctx context.Context, session *model.ExamSession) error {
-	return db.DB.WithContext(ctx).Save(session).Error
+	return db.DB.WithContext(ctx).Model(&model.ExamSession{}).
+		Where("id = ?", session.ID).
+		UpdateColumns(map[string]interface{}{
+			"submit_answers": session.SubmitAnswers,
+			"end_time":       session.EndTime,
+			"finish":         session.Finish,
+			"score":          session.Score,
+			"extra":          session.Extra,
+		}).Error
 }
 
 func (r *ExamSessionRepo) GetByID(ctx context.Context, id uint) (*model.ExamSession, error) {
@@ -135,8 +143,4 @@ func (r *ExamSessionRepo) CreateWithProblems(ctx context.Context, session *model
 		}
 		return nil
 	})
-}
-
-func (r *ExamSessionRepo) UpdateWithTx(tx *gorm.DB, session *model.ExamSession) error {
-	return tx.Save(session).Error
 }

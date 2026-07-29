@@ -99,7 +99,7 @@ func (r *ExamSessionRepo) ListActiveSessions(ctx context.Context, now time.Time)
 
 func (r *ExamSessionRepo) FindUnfinished(ctx context.Context, examID uint, studentID string, now time.Time) (*model.ExamSession, error) {
 	var session model.ExamSession
-	err := db.DB.WithContext(ctx).Preload("Problems").
+	err := db.DB.WithContext(ctx).
 		Where("exam_id = ? AND student_id = ? AND finish = ? AND end_time > ?", examID, studentID, false, now).
 		First(&session).Error
 	if err != nil {

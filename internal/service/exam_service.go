@@ -114,7 +114,7 @@ func (s *ExamService) Start(ctx context.Context, examID uint, studentID, name st
 	now := time.Now()
 
 	s.attemptTracker.Refresh(examID, studentID, now)
-	count := s.attemptTracker.GetCount(examID, studentID)
+	count := s.attemptTracker.GetCount(ctx, examID, studentID)
 
 	if exam.LimitNumber > 0 && count >= exam.LimitNumber {
 		return nil, fmt.Errorf("提交数量已达上限（%d次）！", exam.LimitNumber)

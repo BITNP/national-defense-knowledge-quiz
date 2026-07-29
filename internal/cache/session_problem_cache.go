@@ -1,11 +1,7 @@
 package cache
 
 import (
-	"context"
-	"fmt"
 	"sync"
-
-	"national-defense-knowledge-quiz/internal/repository"
 )
 
 type SessionProblemCache struct {
@@ -17,18 +13,6 @@ func NewSessionProblemCache() *SessionProblemCache {
 	return &SessionProblemCache{
 		data: make(map[uint][]uint),
 	}
-}
-
-func (c *SessionProblemCache) LoadAll(ctx context.Context, repo *repository.ExamSessionRepo) error {
-	all, err := repo.GetAllProblemIDs(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to load session problem IDs: %w", err)
-	}
-	c.mu.Lock()
-	c.data = all
-	c.mu.Unlock()
-	fmt.Printf("session problem cache warmed: %d sessions\n", len(all))
-	return nil
 }
 
 func (c *SessionProblemCache) Get(sessionID uint) ([]uint, bool) {

@@ -18,33 +18,23 @@ type AttemptTracker struct {
 	mu     sync.RWMutex
 	counts map[string]int
 	active map[string]*activeSession
+	repo   *repository.ExamSessionRepo
 }
 
-func NewAttemptTracker() *AttemptTracker {
+func NewAttemptTracker(repo *repository.ExamSessionRepo) *AttemptTracker {
 	return &AttemptTracker{
 		counts: make(map[string]int),
 		active: make(map[string]*activeSession),
+		repo:   repo,
 	}
 }
 
-func (t *AttemptTracker) Seed(ctx context.Context, repo *repository.ExamSessionRepo) error {
+func (t *AttemptTracker) LoadActiveSessions(ctx context.Context) error {
 	now := time.Now()
 
-	completed, err := repo.CountCompletedGroupBy(ctx, now)
+	active, err := t.repo.ListActiveSessions(ctx, now)
 	if err != nil {
-		return fmt.Errorf("failed to seed completed counts: %w", err)
-	}
-
-	t.mu.Lock()
-	for _, c := range completed {
-		key := t.key(c.ExamID, c.StudentID)
-		t.counts[key] = int(c.Count)
-	}
-	t.mu.Unlock()
-
-	active, err := repo.ListActiveSessions(ctx, now)
-	if err != nil {
-		return fmt.Errorf("failed to seed active sessions: %w", err)
+		return fmt.Errorf("failed to load active sessions: %w", err)
 	}
 
 	t.mu.Lock()
@@ -54,12 +44,27 @@ func (t *AttemptTracker) Seed(ctx context.Context, repo *repository.ExamSessionR
 	}
 	t.mu.Unlock()
 
-	fmt.Printf("attempt tracker seeded: %d completed counts, %d active sessions\n", len(completed), len(active))
+	fmt.Printf("attempt tracker seeded: %d active sessions\n", len(active))
 	return nil
 }
 
-func (t *AttemptTracker) key(examID uint, studentID string) string {
-	return fmt.Sprintf("%d:%s", examID, studentID)
+func (t *AttemptTracker) WarmCompleted(ctx context.Context) error {
+	now := time.Now()
+
+	completed, err := t.repo.CountCompletedGroupBy(ctx, now)
+	if err != nil {
+		return fmt.Errorf("failed to warm completed counts: %w", err)
+	}
+
+	t.mu.Lock()
+	for _, c := range completed {
+		key := t.key(c.ExamID, c.StudentID)
+		t.counts[key] = int(c.Count)
+	}
+	t.mu.Unlock()
+
+	fmt.Printf("attempt tracker warmed: %d completed counts\n", len(completed))
+	return nil
 }
 
 func (t *AttemptTracker) Refresh(examID uint, studentID string, now time.Time) {
@@ -72,12 +77,29 @@ func (t *AttemptTracker) Refresh(examID uint, studentID string, now time.Time) {
 	t.mu.Unlock()
 }
 
-func (t *AttemptTracker) GetCount(examID uint, studentID string) int {
+func (t *AttemptTracker) GetCount(ctx context.Context, examID uint, studentID string) int {
 	key := t.key(examID, studentID)
+
 	t.mu.RLock()
-	c := t.counts[key]
+	c, ok := t.counts[key]
 	t.mu.RUnlock()
-	return c
+	if ok {
+		return c
+	}
+
+	count, err := t.repo.CountFinishedOrExpired(ctx, examID, studentID, time.Now())
+	if err != nil {
+		return 0
+	}
+
+	t.mu.Lock()
+	if existing, loaded := t.counts[key]; loaded {
+		t.mu.Unlock()
+		return existing
+	}
+	t.counts[key] = int(count)
+	t.mu.Unlock()
+	return int(count)
 }
 
 func (t *AttemptTracker) GetActive(examID uint, studentID string) (uint, bool) {
@@ -108,4 +130,8 @@ func (t *AttemptTracker) MarkFinished(examID uint, studentID string, sessionID u
 		t.counts[key]++
 	}
 	t.mu.Unlock()
+}
+
+func (t *AttemptTracker) key(examID uint, studentID string) string {
+	return fmt.Sprintf("%d:%s", examID, studentID)
 }

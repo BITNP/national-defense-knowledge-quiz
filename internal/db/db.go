@@ -51,6 +51,16 @@ func Init(dbType, dsn string) {
 
 	DB.Exec("DROP INDEX IF EXISTS idx_exam_sessions_exam_id")
 
+	DB.Exec(`CREATE TABLE IF NOT EXISTS exam_session_problems (
+		exam_session_id INTEGER NOT NULL,
+		problem_id INTEGER NOT NULL
+	)`)
+	DB.Exec("CREATE INDEX IF NOT EXISTS idx_esp_session_problem ON exam_session_problems(exam_session_id, problem_id)")
+
+	if dbType == "postgres" {
+		DB.Exec("CREATE INDEX IF NOT EXISTS idx_exam_sessions_finished ON exam_sessions(exam_id, student_id) WHERE finish = true")
+	}
+
 	if dbType == "postgres" {
 		sqlDB, err := DB.DB()
 		if err != nil {

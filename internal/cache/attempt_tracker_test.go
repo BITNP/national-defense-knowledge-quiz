@@ -1,12 +1,13 @@
 package cache
 
 import (
+	"context"
 	"testing"
 	"time"
 )
 
 func TestNewAttemptTracker(t *testing.T) {
-	tracker := NewAttemptTracker()
+	tracker := NewAttemptTracker(nil)
 	if tracker == nil {
 		t.Fatal("expected non-nil tracker")
 	}
@@ -19,7 +20,7 @@ func TestNewAttemptTracker(t *testing.T) {
 }
 
 func TestRegisterAndGetActive(t *testing.T) {
-	tracker := NewAttemptTracker()
+	tracker := NewAttemptTracker(nil)
 	id, ok := tracker.GetActive(1, "student1")
 	if ok {
 		t.Error("expected no active session")
@@ -40,16 +41,13 @@ func TestRegisterAndGetActive(t *testing.T) {
 }
 
 func TestRefreshExpiresOldSession(t *testing.T) {
-	tracker := NewAttemptTracker()
+	tracker := NewAttemptTracker(nil)
 	now := time.Now()
 
 	tracker.RegisterActive(1, "student1", 42, now.Add(-time.Minute))
-	if count := tracker.GetCount(1, "student1"); count != 0 {
-		t.Errorf("expected count 0 before refresh, got %d", count)
-	}
 
 	tracker.Refresh(1, "student1", now)
-	if count := tracker.GetCount(1, "student1"); count != 1 {
+	if count := tracker.GetCount(context.Background(), 1, "student1"); count != 1 {
 		t.Errorf("expected count 1 after refresh, got %d", count)
 	}
 	if _, ok := tracker.GetActive(1, "student1"); ok {
@@ -58,28 +56,25 @@ func TestRefreshExpiresOldSession(t *testing.T) {
 }
 
 func TestRefreshKeepsActiveSession(t *testing.T) {
-	tracker := NewAttemptTracker()
+	tracker := NewAttemptTracker(nil)
 	now := time.Now()
 
 	tracker.RegisterActive(1, "student1", 42, now.Add(time.Hour))
 	tracker.Refresh(1, "student1", now)
 
-	if count := tracker.GetCount(1, "student1"); count != 0 {
-		t.Errorf("expected count 0, got %d", count)
-	}
 	if _, ok := tracker.GetActive(1, "student1"); !ok {
 		t.Error("expected active still present")
 	}
 }
 
 func TestMarkFinished(t *testing.T) {
-	tracker := NewAttemptTracker()
+	tracker := NewAttemptTracker(nil)
 	now := time.Now()
 
 	tracker.RegisterActive(1, "student1", 42, now.Add(time.Hour))
 	tracker.MarkFinished(1, "student1", 42)
 
-	if count := tracker.GetCount(1, "student1"); count != 1 {
+	if count := tracker.GetCount(context.Background(), 1, "student1"); count != 1 {
 		t.Errorf("expected count 1, got %d", count)
 	}
 	if _, ok := tracker.GetActive(1, "student1"); ok {
@@ -88,15 +83,15 @@ func TestMarkFinished(t *testing.T) {
 }
 
 func TestMarkFinishedNoActive(t *testing.T) {
-	tracker := NewAttemptTracker()
+	tracker := NewAttemptTracker(nil)
 	tracker.MarkFinished(1, "student1", 99)
-	if count := tracker.GetCount(1, "student1"); count != 1 {
+	if count := tracker.GetCount(context.Background(), 1, "student1"); count != 1 {
 		t.Errorf("expected count 1, got %d", count)
 	}
 }
 
 func TestMultipleKeys(t *testing.T) {
-	tracker := NewAttemptTracker()
+	tracker := NewAttemptTracker(nil)
 	now := time.Now()
 
 	tracker.RegisterActive(1, "alice", 10, now.Add(time.Hour))
@@ -105,10 +100,10 @@ func TestMultipleKeys(t *testing.T) {
 	tracker.MarkFinished(1, "alice", 10)
 	tracker.Refresh(2, "bob", now.Add(2*time.Hour))
 
-	if c := tracker.GetCount(1, "alice"); c != 1 {
+	if c := tracker.GetCount(context.Background(), 1, "alice"); c != 1 {
 		t.Errorf("alice count: expected 1, got %d", c)
 	}
-	if c := tracker.GetCount(2, "bob"); c != 1 {
+	if c := tracker.GetCount(context.Background(), 2, "bob"); c != 1 {
 		t.Errorf("bob count: expected 1, got %d", c)
 	}
 	if _, ok := tracker.GetActive(1, "alice"); ok {

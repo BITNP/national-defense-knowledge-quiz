@@ -39,10 +39,15 @@ func main() {
 		log.Fatalf("failed to warm exam cache: %v", err)
 	}
 
-	attemptTracker := cache.NewAttemptTracker()
-	if err := attemptTracker.Seed(context.Background(), &repository.ExamSessionRepo{}); err != nil {
-		log.Fatalf("failed to seed attempt tracker: %v", err)
+	attemptTracker := cache.NewAttemptTracker(&repository.ExamSessionRepo{})
+	if err := attemptTracker.LoadActiveSessions(context.Background()); err != nil {
+		log.Fatalf("failed to load active sessions: %v", err)
 	}
+	go func() {
+		if err := attemptTracker.WarmCompleted(context.Background()); err != nil {
+			log.Printf("background completed count warming failed: %v", err)
+		}
+	}()
 
 	prizeCache := cache.NewPrizeCache()
 	if err := prizeCache.LoadAll(context.Background(), &repository.PrizeRepo{}); err != nil {
@@ -50,9 +55,6 @@ func main() {
 	}
 
 	sessionProblemCache := cache.NewSessionProblemCache()
-	if err := sessionProblemCache.LoadAll(context.Background(), &repository.ExamSessionRepo{}); err != nil {
-		log.Fatalf("failed to warm session problem cache: %v", err)
-	}
 
 	examSvc := service.NewExamService(cfg.TZ, problemCache, examCache, prizeCache, sessionProblemCache, attemptTracker)
 	examHandler := handler.NewExamHandler(examSvc)

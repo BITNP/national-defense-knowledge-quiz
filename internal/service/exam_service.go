@@ -109,31 +109,15 @@ func (s *ExamService) Start(ctx context.Context, examID uint, studentID, name st
 
 	now := time.Now()
 
-	if !s.attemptTracker.HasAttempted(examID, studentID) {
-		return s.createNewSession(ctx, exam, examID, studentID, name, now)
-	}
-
-	sessions, err := s.sessionRepo.FindSessionsByExamAndStudent(ctx, examID, studentID)
-	if err != nil {
-		return nil, fmt.Errorf("database error")
-	}
-
-	count := 0
-	var unfinished *model.ExamSession
-	for i := range sessions {
-		if sessions[i].Finish || !sessions[i].EndTime.After(now) {
-			count++
-		} else {
-			unfinished = &sessions[i]
-		}
-	}
+	s.attemptTracker.Refresh(examID, studentID, now)
+	count := s.attemptTracker.GetCount(examID, studentID)
 
 	if exam.LimitNumber > 0 && count >= exam.LimitNumber {
 		return nil, fmt.Errorf("提交数量已达上限（%d次）！", exam.LimitNumber)
 	}
 
-	if unfinished != nil {
-		fullSession, err := s.sessionRepo.GetByID(ctx, unfinished.ID)
+	if sessionID, ok := s.attemptTracker.GetActive(examID, studentID); ok {
+		fullSession, err := s.sessionRepo.GetByID(ctx, sessionID)
 		if err != nil {
 			return nil, fmt.Errorf("failed to load session")
 		}
@@ -166,7 +150,7 @@ func (s *ExamService) createNewSession(ctx context.Context, exam *model.Exam, ex
 		return nil, fmt.Errorf("failed to create session")
 	}
 
-	s.attemptTracker.MarkAttempted(examID, studentID)
+	s.attemptTracker.RegisterActive(examID, studentID, session.ID, session.EndTime)
 
 	return s.buildStartResultFromProblems(session, exam, problems), nil
 }
@@ -236,6 +220,8 @@ func (s *ExamService) Submit(ctx context.Context, logID uint, studentID, name, a
 	if err := s.sessionRepo.Update(ctx, session); err != nil {
 		return nil, fmt.Errorf("failed to save session")
 	}
+
+	s.attemptTracker.MarkFinished(session.ExamID, session.StudentID, session.ID)
 
 	return &SubmitResult{
 		FullScore: session.FullScore,

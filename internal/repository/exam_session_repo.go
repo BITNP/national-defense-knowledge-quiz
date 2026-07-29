@@ -57,6 +57,38 @@ func (r *ExamSessionRepo) CountFinishedOrExpired(ctx context.Context, examID uin
 	return count, err
 }
 
+type CompletedCount struct {
+	ExamID    uint   `gorm:"column:exam_id"`
+	StudentID string `gorm:"column:student_id"`
+	Count     int64  `gorm:"column:count"`
+}
+
+func (r *ExamSessionRepo) CountCompletedGroupBy(ctx context.Context, now time.Time) ([]CompletedCount, error) {
+	var rows []CompletedCount
+	err := db.DB.WithContext(ctx).Model(&model.ExamSession{}).
+		Select("exam_id, student_id, COUNT(*) as count").
+		Where("finish = ? OR end_time <= ?", true, now).
+		Group("exam_id, student_id").
+		Scan(&rows).Error
+	return rows, err
+}
+
+type ActiveSession struct {
+	ID        uint      `gorm:"column:id"`
+	ExamID    uint      `gorm:"column:exam_id"`
+	StudentID string    `gorm:"column:student_id"`
+	EndTime   time.Time `gorm:"column:end_time"`
+}
+
+func (r *ExamSessionRepo) ListActiveSessions(ctx context.Context, now time.Time) ([]ActiveSession, error) {
+	var rows []ActiveSession
+	err := db.DB.WithContext(ctx).Model(&model.ExamSession{}).
+		Select("id, exam_id, student_id, end_time").
+		Where("finish = ? AND end_time > ?", false, now).
+		Scan(&rows).Error
+	return rows, err
+}
+
 func (r *ExamSessionRepo) FindUnfinished(ctx context.Context, examID uint, studentID string, now time.Time) (*model.ExamSession, error) {
 	var session model.ExamSession
 	err := db.DB.WithContext(ctx).Preload("Problems").

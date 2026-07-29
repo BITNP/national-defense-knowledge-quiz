@@ -39,8 +39,8 @@ func main() {
 		log.Fatalf("failed to warm exam cache: %v", err)
 	}
 
-	attemptTracker := cache.NewAttemptTracker(cache.DefaultBloomCapacity)
-	if err := attemptTracker.Seed(context.Background()); err != nil {
+	attemptTracker := cache.NewAttemptTracker()
+	if err := attemptTracker.Seed(context.Background(), &repository.ExamSessionRepo{}); err != nil {
 		log.Fatalf("failed to seed attempt tracker: %v", err)
 	}
 

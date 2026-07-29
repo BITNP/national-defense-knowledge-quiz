@@ -27,7 +27,7 @@ func main() {
 		gin.SetMode(gin.ReleaseMode)
 	}
 
-	db.Init(cfg.DBType, cfg.DBURL)
+	db.Init(cfg)
 
 	problemCache := cache.NewProblemCache()
 	if err := problemCache.LoadAll(context.Background(), &repository.ProblemRepo{}); err != nil {

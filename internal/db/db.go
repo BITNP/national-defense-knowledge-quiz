@@ -2,29 +2,25 @@ package db
 
 import (
 	"log"
-	"time"
 
 	"gorm.io/driver/postgres"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	"gorm.io/gorm/schema"
 
+	"national-defense-knowledge-quiz/internal/config"
 	"national-defense-knowledge-quiz/internal/model"
 )
 
-const maxOpenConns = 200
-const maxIdleConns = 50
-const connMaxLifetime = 30 * time.Minute
-
 var DB *gorm.DB
 
-func Init(dbType, dsn string) {
+func Init(cfg *config.Config) {
 	var dialector gorm.Dialector
-	switch dbType {
+	switch cfg.DBType {
 	case "postgres":
-		dialector = postgres.Open(dsn)
+		dialector = postgres.Open(cfg.DBURL)
 	default:
-		dialector = sqlite.Open(dsn)
+		dialector = sqlite.Open(cfg.DBURL)
 	}
 
 	var err error
@@ -47,7 +43,7 @@ func Init(dbType, dsn string) {
 		log.Fatalf("failed to migrate database: %v", err)
 	}
 
-	log.Printf("database connected and migrated (type=%s)", dbType)
+	log.Printf("database connected and migrated (type=%s)", cfg.DBType)
 
 	DB.Exec("DROP INDEX IF EXISTS idx_exam_sessions_exam_id")
 
@@ -57,18 +53,20 @@ func Init(dbType, dsn string) {
 	)`)
 	DB.Exec("CREATE INDEX IF NOT EXISTS idx_esp_session_problem ON exam_session_problems(exam_session_id, problem_id)")
 
-	if dbType == "postgres" {
+	if cfg.DBType == "postgres" {
 		DB.Exec("CREATE INDEX IF NOT EXISTS idx_exam_sessions_finished ON exam_sessions(exam_id, student_id) WHERE finish = true")
 	}
 
-	if dbType == "postgres" {
+	if cfg.DBType == "postgres" {
 		sqlDB, err := DB.DB()
 		if err != nil {
 			log.Fatalf("failed to get underlying sql.DB: %v", err)
 		}
-		sqlDB.SetMaxOpenConns(maxOpenConns)
-		sqlDB.SetMaxIdleConns(maxIdleConns)
-		sqlDB.SetConnMaxLifetime(connMaxLifetime)
-		log.Printf("connection pool configured: max_open=%d max_idle=%d max_lifetime=%s", maxOpenConns, maxIdleConns, connMaxLifetime)
+		sqlDB.SetMaxOpenConns(cfg.DBMaxOpenConns)
+		sqlDB.SetMaxIdleConns(cfg.DBMaxIdleConns)
+		sqlDB.SetConnMaxLifetime(cfg.DBConnMaxLifetime)
+		sqlDB.SetConnMaxIdleTime(cfg.DBConnMaxIdleTime)
+		log.Printf("connection pool configured: max_open=%d max_idle=%d max_lifetime=%s max_idle_time=%s",
+			cfg.DBMaxOpenConns, cfg.DBMaxIdleConns, cfg.DBConnMaxLifetime, cfg.DBConnMaxIdleTime)
 	}
 }

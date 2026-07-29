@@ -1,6 +1,7 @@
 services:
   db:
     image: postgres:16-alpine
+    command: postgres -c max_connections=500
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
@@ -21,6 +22,10 @@ services:
       - "9000:9000"
     environment:
       DB_URL: "postgres://postgres:postgres@db:5432/exam?sslmode=disable"
+      DB_MAX_OPEN_CONNS: "200"
+      DB_MAX_IDLE_CONNS: "200"
+      DB_CONN_MAX_LIFETIME: "30m"
+      DB_CONN_MAX_IDLE_TIME: "10m"
       PORT: "9000"
       TZ: "Asia/Shanghai"
       GIN_MODE: "release"

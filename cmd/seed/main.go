@@ -97,6 +97,18 @@ func main() {
 			}
 		}
 
+		if err := tx.Exec(`
+			DELETE FROM exam_session_problems
+			WHERE exam_session_id IN (
+				SELECT id FROM exam_sessions WHERE exam_id = ?
+			)
+		`, exam.ID).Error; err != nil {
+			return fmt.Errorf("failed to delete session-problem mappings: %w", err)
+		}
+		if err := tx.Where("exam_id = ?", exam.ID).Delete(&model.ExamSession{}).Error; err != nil {
+			return fmt.Errorf("failed to delete exam sessions: %w", err)
+		}
+
 		if err := problemRepo.DeleteByExamID(tx, exam.ID); err != nil {
 			return fmt.Errorf("failed to delete old problems: %w", err)
 		}
